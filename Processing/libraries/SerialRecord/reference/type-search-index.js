@@ -1,0 +1,1 @@
+typeSearchIndex = [{"l":"All Classes and Interfaces","u":"allclasses-index.html"},{"p":"osteele.processing.SerialRecord","l":"CanvasLogger"},{"p":"osteele.processing.SerialRecord","l":"PeriodicEchoScheduler"},{"p":"osteele.processing.SerialRecord","l":"SerialRecord"},{"p":"osteele.processing.SerialRecord","l":"SerialUtils"}];updateSearchResults();
