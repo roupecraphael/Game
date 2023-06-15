@@ -5,7 +5,7 @@ import processing.core.*;
 //https://happycoding.io/tutorials/processing/collision-detection - hitbox detection input 
 
 //hitbox variables and different picture variables:
-int pictY=450, pictX=200, pictSW=60, pictSH=80, pictSpeedY=0, pictAW=55, pictAH=90, pictMW=60, pictMH=80;
+int pictY=410, pictX=200, pictSW=60, pictSH=80, pictSpeedY=0, pictAW=55, pictAH=90, pictMW=60, pictMH=80,pictmX=200, pictmY=410;
 //ground variables:
 int groundY=450;
 //collision object variables
@@ -21,34 +21,30 @@ int rs ,is=0,gs=0, i=0,fs=0;
 
 //initialization of used classes 
 PImage SS,SA,SM,E1,HH,RR;
-Serial usbport;
+Serial myPort;
+int val;
 
 
 //setup class for first initialization of all necceseary components
 void setup() {
+  printArray(Serial.list());
   size(1000, 500);
   textSize(40);
-  Serial usbport = new Serial(this, Serial.list()[2], 115200);
-  println("USB device found");
-  usbport.clear();
+  String portName = Serial.list()[0];
+  myPort = new Serial(this, portName, 115200);
   SS=loadImage("SS.png");
   SA=loadImage("SA.png");
   SM=loadImage("SM.png");
   E1=loadImage("E1.png");
   HH=loadImage("HH.png");
   RR=loadImage("RR.png");
-  output = usbport.readStringUntil('a');
-  output = null;
   
 }
 void draw(){
-  if(usbport.available() > 0) {
-    output = usbport.readStringUntil('\n');
-    if (usbport != null) {
-      println(output);
-    }
-  }
   game();
+
+  
+  
 }
 //finish function simply tracks if the fs variable for succesfull repetitions is 5 and sets variables for gs (gamestates)
 void finish(){
@@ -70,10 +66,14 @@ void game(){
     case 1:
       gameengine();
       gamerender(1);
-      print(fs);
       break;
     case 2:
       gamerender(2);
+      noLoop();
+      break;
+    case 3:
+      gamerender(3);
+      noLoop();
       break;
   }
 }
@@ -88,6 +88,7 @@ void gamerender(int renderstate){
       groundrender();
       imgrender(1);
       objrender();
+      keyevent();
       break;
     //case 1 is the moving position the mouse has been pressed an the game is running currently
     case 1:
@@ -104,7 +105,11 @@ void gamerender(int renderstate){
       imgrender(4);
       break;
     case 3:
-}
+      backgroundrender();
+      groundrender();
+      imgrender(3);
+      break;
+  }
 }
 //renders background so that each frames looks like a new frame
 void backgroundrender(){
@@ -146,23 +151,27 @@ void imgrender(int imagestate){
     case 4:
       pictX =200;
       pictY=370;
-      print("Finish");
       imgend();
-      noLoop();
       break;
   } 
 }
 //display starting position and ground position
 void imgstart(){
+  imageMode(CENTER);
   image(SA, pictX, pictY, pictAW, pictAH);
 }
 //display img for running animation
 void imgjump(){
-  image(SS, pictX, pictY, pictSW, pictSH);
+  imageMode(CENTER);
+  image(SS, pictmX, pictmY, pictSW, pictSH);
 }
 //display img for finisch animation
 void imgend(){
+  imageMode(CORNER);
   image(SM, pictX, pictY, pictMW, pictMH);
+  fill(0, 408, 612);
+  textSize(120);
+  text("Congratiolations!", 40, 240);   
 }
 //displays img for failanimation
 void imgfail(){
@@ -170,26 +179,30 @@ void imgfail(){
   image(E1, width/2, height/2,500,200);
   image(E1, width/2, height/2,600,300);
   image(E1, width/2, height/2,700,400);
-  noLoop();
+  fill(0, 408, 612);
+  textSize(70);
+  text("Oh no, Better luck next time!", 40, 240);   
 }
 //displays img for sykscrapper
 void imghouse(){
+  imageMode(CORNER);
   image(HH,objX, objY,objW,objH);
 }
 //displays img for ferris wheel
 void imgRR(){
-    image(RR,objX, objY,objRW,objRH);
+  imageMode(CORNER);
+  image(RR,objX, objY,objRW,objRH);
 }
 
 void keyevent(){
   if (keyPressed){
     if (key== 'w' || key == 'W') {
       pictSpeedY = -10;
-      pictY += pictSpeedY;
+      pictmY += pictSpeedY;
     }
     if (key=='s'|| key == 'S') {
       pictSpeedY = 10;
-      pictY += pictSpeedY;
+      pictmY += pictSpeedY;
     }
   }
 }
@@ -213,22 +226,17 @@ void gameengine(){
 //tracks if the jumping image of squatty is or is not in collision with the moving buildings source https://www.jeffreythompson.org/collision-detection/rect-rect.php
 boolean hitbox(float r1x, float r1y, float r1w, float r1h, float r2x, float r2y, float r2w, float r2h) {
   // are the sides of one image touching the other?
-  if (r1x + r1w >= r2x &&    // r1 right edge past r2 left
-      r1x <= r2x + r2w &&    // r1 left edge past r2 right
-      r1y + r1h >= r2y &&    // r1 top edge past r2 bottom
-      r1y <= r2y + r2h) {    // r1 bottom edge past r2 top
+  if (r2y <= r1y-objH && r2x < 200 && r2x>0){
         return true;
       }
     return false;    
 }
 //currently not working would pause game and display text
 void hitdetection(){
-  boolean hit =hitbox(pictX, pictY, pictSW, pictSH, objX, objY, objW, objH);
-  if (hit){
-    fill(0, 408, 612);
-    textSize(120);
-    text("Oh no, Better luck next time!", 40, 240);    
-    noLoop();
+  print(pictmX,objX,objY,pictmY,objW);
+  boolean hit =hitbox(pictmX, pictmY, pictSW, pictSH, objX, objY, objW, objH);
+  if (hit){ 
+    gs=3;
   }
   else{
   //debugging purpose not functional
@@ -239,11 +247,11 @@ void hitdetection(){
 
 //stop player from falling through ground
 void borderengine(){
-  if (pictY + pictAH > groundY) {
-    pictY = 370;
+  if (pictmY + (pictAH/2) > groundY) {
+    pictmY = 410;
   }
-  if(pictY+pictAH <80){
-    pictY=0;
+  if(pictmY+(pictAH/2) <80){
+    pictmY=pictAH/2;
   }
 }
 // create random objekt Heights and Width when each obstacle fades of screen 
@@ -261,19 +269,3 @@ void obstacle(){
   //creates the ilussion of obj moving
   objX += objSpeedX;
 }
-
-
-
-void getData(){
-  while (usbport.available() > 0) {
-    if (output != null) {
-      try {
-        maindata = Float.parseFloat(output);
-        println(maindata);
-      } 
-      catch (NumberFormatException e) {
-        println("Error: invalid data received from Arduino");
-       }
-     }
-   }
-} 
