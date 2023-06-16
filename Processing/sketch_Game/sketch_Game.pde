@@ -11,18 +11,34 @@ int groundY=450;
 //collision object variables
 int objW = int(random(100,150)), objH= int(random(-300,-200)), objY=450, objX=1000, objSpeedX=0, objstate, objRW,objRH;
 //variables if needed for compution of IMU Data
-float ax, ay, az, gx, gy, gz, mx, my, mz, maindata;
+float ax, ay, az, gx, gy, gz, maindata;
 //varaibales for Serial protocoll
 String test, output, portInput_usb;
 //variable to start the game
 boolean start=false;
 //variable to track gamestate internally
 int rs ,is=0,gs=0, i=0,fs=0;
-
-//initialization of used classes 
+// all the variables used to convert the raw variables of the accelorometer or magenetometer to be used to move squaty 
+float accvalue;
+//initialization of used img classes https://processing.org/reference/PImage.html#:~:text=The%20PImage%20class%20contains%20fields,simplify%20the%20process%20of%20compositing. 
 PImage SS,SA,SM,E1,HH,RR;
+//Serial port for usb communication
 Serial myPort;
-int val;
+//for speration of lines of data coming in
+int lf= 10; //linefeed in ASCII
+// for receiving data from arduino
+String myString = null;
+// Array for spliting data from myString
+String parsedvariable[];
+//array to determine which acceleration paramater should be used 
+//how acc data works inspiration: https://www.youtube.com/watch?v=MAR4yvxQpzc&ab_channel=LEOMO  implementation is own code based on this video
+float[] avec;
+// variable to save which array variable to use
+int num;
+// variables to determine which acc axis is beeing influenced by gravity
+float orientation_gforce=1.0, buffer, threshold=0.05;
+// variable to use in squatymove function
+float squatymetrix;
 
 
 //setup class for first initialization of all necceseary components
@@ -30,7 +46,7 @@ void setup() {
   printArray(Serial.list());
   size(1000, 500);
   textSize(40);
-  String portName = Serial.list()[0];
+  String portName = Serial.list()[1];
   myPort = new Serial(this, portName, 115200);
   SS=loadImage("SS.png");
   SA=loadImage("SA.png");
@@ -38,13 +54,49 @@ void setup() {
   E1=loadImage("E1.png");
   HH=loadImage("HH.png");
   RR=loadImage("RR.png");
+  myPort.clear();
+  myString=myPort.readStringUntil(lf);
+  myString=null;
   
 }
 void draw(){
   game();
 
-  
-  
+} 
+//parses Usb data everytime a comma is in the string, then saves it in individual variables
+void parseUsbdata(){
+  if (myString !=null){
+    parsedvariable = myString.split(",");
+    ax = float(parsedvariable[0]);
+    ay = float(parsedvariable[1]);
+    az = float(parsedvariable[2]);
+    gamestart();
+  }
+}
+//function to start the game gets the orientation of acc, starts illusion of moving object
+void gamestart(){
+   if (!start){
+     orientation();
+     start = true;
+     objSpeedX = -5;
+     gs=1;
+    }
+}
+//determinse which axis is being influenced by gravity uses this axis in powering squaty 
+void orientation() { 
+   for (i = 0; i<parsedvariable.length; i++){
+     buffer = float(parsedvariable[i]);
+     if (abs(buffer - orientation_gforce) < threshold){
+       num = i;
+     }else{}
+   }
+ }
+
+//reads data from the usb Serial port if not null and saves it in variable myString if not null game starts
+void recieveUsbdata(){
+   while (myPort.available()>0){
+    myString = myPort.readStringUntil(lf);
+  }
 }
 //finish function simply tracks if the fs variable for succesfull repetitions is 5 and sets variables for gs (gamestates)
 void finish(){
@@ -52,12 +104,12 @@ void finish(){
     fs = 0;
     gs =2;
   }
-  
 }
 // game function calls primarly gameengine function and gamerender function also listens for the startevent
 void game(){
   finish();
-  startevent();
+  recieveUsbdata();
+  parseUsbdata();
   switch (gs){
     case 0:
       gameengine();
@@ -88,7 +140,7 @@ void gamerender(int renderstate){
       groundrender();
       imgrender(1);
       objrender();
-      keyevent();
+      //keyevent();
       break;
     //case 1 is the moving position the mouse has been pressed an the game is running currently
     case 1:
@@ -96,7 +148,7 @@ void gamerender(int renderstate){
       groundrender();
       objrender();
       imgrender(2);
-      keyevent();
+      //keyevent();
       break;
     // case 2 is the finishing position the game has finished the fs variable counts 5 and ends the game with squaty having stronger legs
     case 2:
@@ -128,7 +180,6 @@ void objrender(){
   }
   if(objstate==1){
       imgRR(); 
-
   }
 }
 //chooses which images to render gets variable from the gamerender function depending on state of game
@@ -193,35 +244,24 @@ void imgRR(){
   imageMode(CORNER);
   image(RR,objX, objY,objRW,objRH);
 }
-
-void keyevent(){
-  if (keyPressed){
-    if (key== 'w' || key == 'W') {
-      pictSpeedY = -10;
-      pictmY += pictSpeedY;
-    }
-    if (key=='s'|| key == 'S') {
-      pictSpeedY = 10;
-      pictmY += pictSpeedY;
-    }
-  }
-}
-//the game only begins one the mouse is pressed <- event listener
-void startevent(){
-  loop();
-  if (mousePressed){
-    if (!start){
-      start = true;
-      objSpeedX = -5;
-      gs=1;
-    }
-  }
-}
+//void keyevent(){
+//  if (keyPressed){
+//    if (key== 'w' || key == 'W') {
+//      pictSpeedY = -10;
+//      pictmY += pictSpeedY;
+//    }
+//    if (key=='s'|| key == 'S') {
+//      pictSpeedY = 10;
+//      pictmY += pictSpeedY;
+//    }
+//  }
+//}
 //call all computing functions in correct order for game to run
 void gameengine(){
   borderengine();
   obstacle();
   hitdetection();
+  accswitch();
 }
 //tracks if the jumping image of squatty is or is not in collision with the moving buildings source https://www.jeffreythompson.org/collision-detection/rect-rect.php
 boolean hitbox(float r1x, float r1y, float r1w, float r1h, float r2x, float r2y, float r2w, float r2h) {
@@ -231,20 +271,13 @@ boolean hitbox(float r1x, float r1y, float r1w, float r1h, float r2x, float r2y,
       }
     return false;    
 }
-//currently not working would pause game and display text
+// pauses game and display text (gs=3)
 void hitdetection(){
-  print(pictmX,objX,objY,pictmY,objW);
   boolean hit =hitbox(pictmX, pictmY, pictSW, pictSH, objX, objY, objW, objH);
   if (hit){ 
     gs=3;
   }
-  else{
-  //debugging purpose not functional
-  //print(pictY, objX,"\n");
-  }
 }
-
-
 //stop player from falling through ground
 void borderengine(){
   if (pictmY + (pictAH/2) > groundY) {
@@ -266,6 +299,32 @@ void obstacle(){
     objstate= int(random(2));
     fs= fs + 1;
   }
-  //creates the ilussion of obj moving
+  //creates the ilussion of obj moving, inspiration taken from https://www.youtube.com/watch?v=IIrGAvlNckw&list=PLAE4MzuQm3Gwj2QLcqpepbTuIuzi_18mS&ab_channel=AllenThoe
   objX += objSpeedX;
+}
+//makes squaty move 
+void squatypower(float input){
+  squatymetrix = 1- abs(input) ;
+  //proportinalitätsfaktor berechnet mit 0 = höchster y wert (450), 1= niedrigster y Wert (45) faktor= 45
+  pictmY =  int((1/squatymetrix)*45);
+  print(pictmY);
+}
+// uses axis determined in orientation() and makes squaty move each iteration
+void accswitch() {
+  switch (num) {
+    case 0:
+      //if num is 0 = ax nehmen
+      squatypower(ax);
+      break;
+    case 1:
+      // if num is 1 = ay nehmen
+      squatypower(ay);
+      break;
+    case 2:
+      // if num is 2 = az nehmen
+      squatypower(az);
+      break;
+    default:
+      break;
+  }  
 }
