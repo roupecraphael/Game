@@ -1,47 +1,68 @@
-//Requried Libraries imported:
 import processing.serial.*;
 import processing.core.*;
-
-//https://happycoding.io/tutorials/processing/collision-detection - hitbox detection input 
-
-//hitbox variables and different picture variables:
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//The main idea behind this project has been taken from a video about flappy birds but the implementation has been our own work---------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//This is the list of all the variables used in this project each variable is documented as to what it is used for ---------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-hitbox variables and different picture variables:------------------------------------------------------------------------------------------------------------------------//
 int pictY=410, pictX=200, pictSW=60, pictSH=80, pictSpeedY=0, pictAW=55, pictAH=90, pictMW=60, pictMH=80,pictmX=200, pictmY=410;
-//ground variables:
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-ground variables:--------------------------------------------------------------------------------------------------------------------------------------------------------//
 int groundY=450;
-//collision object variables
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-collision object variables:----------------------------------------------------------------------------------------------------------------------------------------------//
 int objW = int(random(100,150)), objH= int(random(-300,-200)), objY=450, objX=1000, objSpeedX=0, objstate, objRW,objRH;
-//variables if needed for compution of IMU Data
-float ax, ay, az, gx, gy, gz, maindata;
-//varaibales for Serial protocoll
-String test, output, portInput_usb;
-//variable to start the game
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-variables if needed for compution of IMU Data: --------------------------------------------------------------------------------------------------------------------------//
+float ax, ay, az, gx, gy, gz;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-variable to start the game:----------------------------------------------------------------------------------------------------------------------------------------------//
 boolean start=false;
-//variable to track gamestate internally
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-variable to track different gamestate internally:------------------------------------------------------------------------------------------------------------------------//
 int rs ,is=0,gs=0, i=0,fs=0;
-// all the variables used to convert the raw variables of the accelorometer or magenetometer to be used to move squaty 
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-all the variables used to convert the raw variables of the accelorometer or magenetometer to be used to move squaty------------------------------------------------------//
 float accvalue;
-//initialization of used img classes https://processing.org/reference/PImage.html#:~:text=The%20PImage%20class%20contains%20fields,simplify%20the%20process%20of%20compositing. 
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//----------------------------------------Library PImage has been used, implementation based on official documentation------------------------------------------------------// 
+//-----------------https://processing.org/reference/PImage.html#:~:text=The%20PImage%20class%20contains%20fields,simplify%20the%20process%20of%20compositing.---------------//
+//-initialization of used img classes,--------------------------------------------------------------------------------------------------------------------------------------//
 PImage SS,SA,SM,E1,HH,RR;
-//Serial port for usb communication
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-Serial port for usb communication:---------------------------------------------------------------------------------------------------------------------------------------//
 Serial myPort;
-//for speration of lines of data coming in
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-for speration of lines of data coming in:--------------------------------------------------------------------------------------------------------------------------------//
 int lf= 10; //linefeed in ASCII
-// for receiving data from arduino
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-for receiving data from arduino:-----------------------------------------------------------------------------------------------------------------------------------------//
 String myString = null;
-// Array for spliting data from myString
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-Array for spliting data from myString:-----------------------------------------------------------------------------------------------------------------------------------//
 String parsedvariable[];
-//array to determine which acceleration paramater should be used 
-//how acc data works inspiration: https://www.youtube.com/watch?v=MAR4yvxQpzc&ab_channel=LEOMO  implementation is own code based on this video
-float[] avec;
-// variable to save which array variable to use
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-variable to save which array variable to use:----------------------------------------------------------------------------------------------------------------------------//
 int num;
-// variables to determine which acc axis is beeing influenced by gravity
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-variables to determine which acc axis is beeing influenced by gravity----------------------------------------------------------------------------------------------------//
 float orientation_gforce=1.0, buffer, threshold=0.05;
-// variable to use in squatymove function
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-variable to use in squatymove function:----------------------------------------------------------------------------------------------------------------------------------//
 float squatymetrix;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-Define the cutoff frequency and the filter coefficient:------------------------------------------------------------------------------------------------------------------//
+float cutoffFrequency = 5.0; // Adjust this value to control the cutoff frequency------------------------------------------------------------------------------------------//
+float filterCoefficient = 2.0 * PI * cutoffFrequency / frameRate;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-Initialize the filtered accelerometer values:----------------------------------------------------------------------------------------------------------------------------//
+float filteredax = 0.0, filtereday = 0.0, filteredaz = 0.0;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
 
-
-//setup class for first initialization of all necceseary components
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*-setup class for first initialization of all necceseary components-------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
 void setup() {
   printArray(Serial.list());
   size(1000, 500);
@@ -57,274 +78,423 @@ void setup() {
   myPort.clear();
   myString=myPort.readStringUntil(lf);
   myString=null;
-  
 }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*-draw class with only 1 function for overview sakes----------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
 void draw(){
   game();
-
 } 
-//parses Usb data everytime a comma is in the string, then saves it in individual variables
-void parseUsbdata(){
-  if (myString !=null){
-    parsedvariable = myString.split(",");
-    ax = float(parsedvariable[0]);
-    ay = float(parsedvariable[1]);
-    az = float(parsedvariable[2]);
-    gamestart();
-  }
-}
-//function to start the game gets the orientation of acc, starts illusion of moving object
-void gamestart(){
-   if (!start){
-     orientation();
-     start = true;
-     objSpeedX = -5;
-     gs=1;
-    }
-}
-//determinse which axis is being influenced by gravity uses this axis in powering squaty 
-void orientation() { 
-   for (i = 0; i<parsedvariable.length; i++){
-     buffer = float(parsedvariable[i]);
-     if (abs(buffer - orientation_gforce) < threshold){
-       num = i;
-     }else{}
-   }
- }
-
-//reads data from the usb Serial port if not null and saves it in variable myString if not null game starts
-void recieveUsbdata(){
-   while (myPort.available()>0){
-    myString = myPort.readStringUntil(lf);
-  }
-}
-//finish function simply tracks if the fs variable for succesfull repetitions is 5 and sets variables for gs (gamestates)
-void finish(){
-  if (fs == 5){
-    fs = 0;
-    gs =2;
-  }
-}
-// game function calls primarly gameengine function and gamerender function also listens for the startevent
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//---Own work official documentation of proccessing was used https://processing.org/reference/switch.html, this applies to any other switch statements used.----------------//
+//**-game function calls primarly gameengine function and gamerender function also listens for the startevent---------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
 void game(){
   finish();
   recieveUsbdata();
   parseUsbdata();
   switch (gs){
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//***-gs 0 is the the squaty standing position where there is no input and nothing happens the game has not started yet and is in standby modus-----------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
     case 0:
       gameengine();
       gamerender(0);
       break;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//***-gs 1 means the game has started. Squaty is rendered jumping and the engine is constantly looping running to track each variable and determine if a jump was succesfull//
+//----or if a collsion has occured------------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
     case 1:
       gameengine();
       gamerender(1);
       break;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//***-gs 2 is the winning state after 5 successfull repetitions the game the game pauses and displays the winning frame, if the mouse is Pressed another round can be ------//
+//----started.--------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
     case 2:
       gamerender(2);
       noLoop();
+      if (mousePressed){
+        gs=1;
+        loop();
+      }
       break;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//***-gs 3 is the loosing sate if a collision has occured the game displays the losing frame, if the mouse is Pressed another round can be started.-------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
     case 3:
       gamerender(3);
       noLoop();
-      break;
-  }
-}
-
-//call all renderfunctions - what to display when
-void gamerender(int renderstate){
-  rs =renderstate;
-  switch(rs){
-    //case 0 is the starting position when nothing has been pressed then imgrender 1 has to be displayed
-    case 0:
-      backgroundrender();
-      groundrender();
-      imgrender(1);
-      objrender();
-      //keyevent();
-      break;
-    //case 1 is the moving position the mouse has been pressed an the game is running currently
-    case 1:
-      backgroundrender();
-      groundrender();
-      objrender();
-      imgrender(2);
-      //keyevent();
-      break;
-    // case 2 is the finishing position the game has finished the fs variable counts 5 and ends the game with squaty having stronger legs
-    case 2:
-      backgroundrender();
-      groundrender();
-      imgrender(4);
-      break;
-    case 3:
-      backgroundrender();
-      groundrender();
-      imgrender(3);
-      break;
-  }
-}
-//renders background so that each frames looks like a new frame
-void backgroundrender(){
-  background(255);
-}
-//renders ground so that squaty doesnt float
-void groundrender(){
-  fill(0);
-  rect(0,groundY,width,50);
-}
-//depending on objstate either a skyscrapper or a ferries wheel is generated
-void objrender(){
-  fill(0);
-  if(objstate==0){
-      imghouse();
-  }
-  if(objstate==1){
-      imgRR(); 
-  }
-}
-//chooses which images to render gets variable from the gamerender function depending on state of game
-void imgrender(int imagestate){
-  is=imagestate;
-  switch(is){
-//if the mouse has not been pressed display standing squaty
-    case 1:
-      imgstart();
-      break;
-//if game has started display jumping squaty is not on the ground
-    case 2:
-      imgjump();
-      break;
-//hitbox was triggered display big boom
-    case 3:
-      imgfail();
-      break;
-//succesfull repetitions
-    case 4:
-      pictX =200;
-      pictY=370;
-      imgend();
-      break;
-  } 
-}
-//display starting position and ground position
-void imgstart(){
-  imageMode(CENTER);
-  image(SA, pictX, pictY, pictAW, pictAH);
-}
-//display img for running animation
-void imgjump(){
-  imageMode(CENTER);
-  image(SS, pictmX, pictmY, pictSW, pictSH);
-}
-//display img for finisch animation
-void imgend(){
-  imageMode(CORNER);
-  image(SM, pictX, pictY, pictMW, pictMH);
-  fill(0, 408, 612);
-  textSize(120);
-  text("Congratiolations!", 40, 240);   
-}
-//displays img for failanimation
-void imgfail(){
-  imageMode(CENTER);
-  image(E1, width/2, height/2,500,200);
-  image(E1, width/2, height/2,600,300);
-  image(E1, width/2, height/2,700,400);
-  fill(0, 408, 612);
-  textSize(70);
-  text("Oh no, Better luck next time!", 40, 240);   
-}
-//displays img for sykscrapper
-void imghouse(){
-  imageMode(CORNER);
-  image(HH,objX, objY,objW,objH);
-}
-//displays img for ferris wheel
-void imgRR(){
-  imageMode(CORNER);
-  image(RR,objX, objY,objRW,objRH);
-}
-//void keyevent(){
-//  if (keyPressed){
-//    if (key== 'w' || key == 'W') {
-//      pictSpeedY = -10;
-//      pictmY += pictSpeedY;
-//    }
-//    if (key=='s'|| key == 'S') {
-//      pictSpeedY = 10;
-//      pictmY += pictSpeedY;
-//    }
-//  }
-//}
-//call all computing functions in correct order for game to run
-void gameengine(){
-  borderengine();
-  obstacle();
-  hitdetection();
-  accswitch();
-}
-//tracks if the jumping image of squatty is or is not in collision with the moving buildings source https://www.jeffreythompson.org/collision-detection/rect-rect.php
-boolean hitbox(float r1x, float r1y, float r1w, float r1h, float r2x, float r2y, float r2w, float r2h) {
-  // are the sides of one image touching the other?
-  if (r2y <= r1y-objH && r2x < 200 && r2x>0){
-        return true;
+      if (mousePressed){
+        gs=1;
+        loop();
       }
-    return false;    
-}
-// pauses game and display text (gs=3)
-void hitdetection(){
-  boolean hit =hitbox(pictmX, pictmY, pictSW, pictSH, objX, objY, objW, objH);
-  if (hit){ 
-    gs=3;
+      break;
   }
 }
-//stop player from falling through ground
-void borderengine(){
-  if (pictmY + (pictAH/2) > groundY) {
-    pictmY = 410;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//***-finish function simply tracks if the fs variable for succesfull repetitions is 5 and sets variables for gs (gamestates)-----------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+  void finish(){
+    if (fs == 5){
+      fs = 0;
+      gs =2;
+    }
   }
-  if(pictmY+(pictAH/2) <80){
-    pictmY=pictAH/2;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//***-reads data from the usb Serial port if not null and saves it in variable myString if not null game starts-------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+  void recieveUsbdata(){
+     while (myPort.available()>0){
+      myString = myPort.readStringUntil(lf);
+    }
   }
-}
-// create random objekt Heights and Width when each obstacle fades of screen 
-void obstacle(){
-  if (-objW > (objX+100)){
-    objX = 1000;
-    objW = int(random(100,150));
-    objH = int(random(-300,-200));
-    objRW= int(random(200,250));
-    objRH = -objRW;
-    //selects a number randomly between 0 and 1
-    objstate= int(random(2));
-    fs= fs + 1;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------//official Documentation used for implementation of split https://processing.org/reference/split_.html------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//***-parses Usb data everytime a comma is in the string, then saves it in individual variables-----------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+  void parseUsbdata(){
+    if (myString !=null){
+      parsedvariable = myString.split(",");
+      ax = float(parsedvariable[0]);
+      ay = float(parsedvariable[1]);
+      az = float(parsedvariable[2]);
+    }
   }
-  //creates the ilussion of obj moving, inspiration taken from https://www.youtube.com/watch?v=IIrGAvlNckw&list=PLAE4MzuQm3Gwj2QLcqpepbTuIuzi_18mS&ab_channel=AllenThoe
-  objX += objSpeedX;
-}
-//makes squaty move 
-void squatypower(float input){
-  squatymetrix = 1- abs(input) ;
-  //proportinalitätsfaktor berechnet mit 0 = höchster y wert (450), 1= niedrigster y Wert (45) faktor= 45
-  pictmY =  int((1/squatymetrix)*45);
-  print(pictmY);
-}
-// uses axis determined in orientation() and makes squaty move each iteration
-void accswitch() {
-  switch (num) {
-    case 0:
-      //if num is 0 = ax nehmen
-      squatypower(ax);
-      break;
-    case 1:
-      // if num is 1 = ay nehmen
-      squatypower(ay);
-      break;
-    case 2:
-      // if num is 2 = az nehmen
-      squatypower(az);
-      break;
-    default:
-      break;
-  }  
-}
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//***-switch to respective renderfunctions - what to display when based on switch statement gs in gamestate. Everything that is displayed is being called in this function--//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+    void gamerender(int renderstate){
+      rs =renderstate;
+      switch(rs){
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-case 0 is the starting position when the game has not started yet.---------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        case 0:
+          backgroundrender();
+          groundrender();
+          imgrender(1);
+          objrender();
+          break;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-case 1 is the moving position the mouse has been pressed an the game is running currently----------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        case 1:
+          backgroundrender();
+          groundrender();
+          objrender();
+          imgrender(2);
+          break;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-case 2 is the finishing position the game has finished the fs variable counts 5 and ends the game with squaty having stronger legs.----------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        case 2:
+          backgroundrender();
+          groundrender();
+          imgrender(4);
+          break;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-case 3 is the fail position the player has collieded with an object and has failed the objective---------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        case 3:
+          backgroundrender();
+          groundrender();
+          imgrender(3);
+          break;
+      }
+    }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-renders the background atop of anything that has been displayed previously, so it looks like a new frame------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+      void backgroundrender(){
+        background(255);
+      }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-renders ground so that squaty seems to be standing on a surface-----------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+      void groundrender(){
+        fill(0);
+        rect(0,groundY,width,50);
+      }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-depending on objstate either a skyscrapper or a ferries wheel is generated------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+      void objrender(){
+        fill(0);
+        if(objstate==0){
+            imghouse();
+        }
+        if(objstate==1){
+            imgRR(); 
+        }
+      }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-chooses which images to render gets variable from the gamerender function depending on state of game----------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+      void imgrender(int imagestate){
+        is=imagestate;
+        switch(is){
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-if the mouse has not been pressed display standing squaty----------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+          case 1:
+            imgstart();
+            break;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-if game has started display jumping squaty is not on the ground----------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+          case 2:
+            imgjump();
+            break;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-hitbox was triggered display big boom------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+          case 3:
+            imgfail();
+            break;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-succesfull repetitions, diplay stronger squaty---------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+          case 4:
+            pictX =200;
+            pictY=370;
+            imgend();
+            break;
+        } 
+      }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------- how the images are renderd on the screen is taken from the flappy bird tutorial, implementation is our own work-------------------------------//
+//--------------------------------https://www.youtube.com/watch?v=IIrGAvlNckw&list=PLAE4MzuQm3Gwj2QLcqpepbTuIuzi_18mS&ab_channel=AllenThoe----------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-display starting position and information for the user-------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        void imgstart(){
+          imageMode(CENTER);
+          image(SA, pictX, pictY, pictAW, pictAH);
+          if(myString!=null){
+            fill(0);
+            textSize(50);
+            text("IMU Data recieved, Press mouse1 to start",40,100);
+          }
+          else{
+            fill(0);
+            textSize(20);
+            text("Waiting for IMU Data....",40,100);
+            text("How this game works:",40,140);
+            text("Position the imu on your thigh muscle",60,180);
+            text("After you press start buildings will appear on the right of your screen.",60,220);
+            text("To jump over the buildings peform a squat. You need 5 succesfull jumps to win the game.",60,260);
+            text("Have fun!",60,300);
+          }
+        }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-display img for running animation.---------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        void imgjump(){
+          imageMode(CENTER);
+          image(SS, pictmX, pictmY, pictSW, pictSH);
+        }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-display img for finish animation----------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        void imgend(){
+          imageMode(CORNER);
+          image(SM, pictX, pictY, pictMW, pictMH);
+          fill(0);
+          textSize(120);
+          text("Congratiolations!", 40, 240);   
+        }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-displays img for failanimation.------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        void imgfail(){
+          imageMode(CENTER);
+          image(E1, width/2, height/2,500,200);
+          image(E1, width/2, height/2,600,300);
+          image(E1, width/2, height/2,700,400);
+          fill(0);
+          textSize(70);
+          text("Oh no, Better luck next time!", 40, 240);   
+        }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-displays img for sykscrapper---------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        void imghouse(){
+          imageMode(CORNER);
+          image(HH,objX, objY,objW,objH);
+        }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//******-displays img for ferris wheel--------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        void imgRR(){
+          imageMode(CORNER);
+          image(RR,objX, objY,objRW,objRH);
+        }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-------------------------------------own work only thing used is official documentation for switch library----------------------------------------------------------------//
+//-----------------------------each individual functions where other source has been used is documented in the respective function------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//***-all computing functions are called here in correct order for game to run correctly, basically this function simply tracks and updates variables each loop.------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+    void gameengine(){
+      gamestart();
+      obstacle();
+      accswitch();
+      borderengine();
+      hitdetection();
+    }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------implementation is our own work, the base idea of a moving object is based on a video tutorial of flappy birds-----------------------------------//
+//----------------------------https://www.youtube.com/watch?v=IIrGAvlNckw&list=PLAE4MzuQm3Gwj2QLcqpepbTuIuzi_18mS&ab_channel=AllenThoe--------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-function to start the game gets the orientation of acc, starts illusion of moving object-----------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+      void gamestart(){
+       if (myString != null){
+         if(mousePressed){
+           if (!start){
+             orientation();
+             start = true;
+             objSpeedX = -5;
+             gs=1;
+            }
+          }
+        }
+      }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-------------------------- own work based on how acc-meters work, inspiration taken from video about acc data from imu sensors--------------------------------------------//
+// -----------------------------------------https://www.youtube.com/watch?v=MAR4yvxQpzc&ab_channel=LEOMO--------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-determines which axis is being influenced by gravity, the axis influenced by gravity is the axis with the highest - or lowest value. Then uses this axis in --------//
+//------for moving squaty---------------------------------------------------------------------------------------------------------------------------------------------------// 
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        void orientation() { 
+           for (i = 0; i<parsedvariable.length; i++){
+             buffer = float(parsedvariable[i]);
+             if (abs(buffer - orientation_gforce) < threshold){
+               num = i;
+             }else{}
+           }
+         }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-create random objekt Heights and Width when each obstacle fades of screen (if condition)-----------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+      void obstacle(){
+        if (-objW > (objX+100)){
+          objX = 1000;
+          objW = int(random(100,150));
+          objH = int(random(-300,-200));
+          objRW= int(random(200,250));
+          objRH = -objRW;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-selects a number randomly between 0 and 1 and sets it to gamestate if 1 then a feris wheel wil be rendered if 0 then a skyscraper will be rendered-------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+            objstate= int(random(2));
+            fs= fs + 1;
+          }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//---------------------------------------------------inspiration taken from flappy birds tutorial --------------------------------------------------------------------------//
+//-----------------------------https://www.youtube.com/watch?v=IIrGAvlNckw&list=PLAE4MzuQm3Gwj2QLcqpepbTuIuzi_18mS&ab_channel=AllenThoe-------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//-----creates the impression of obj moving---------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        objX += objSpeedX;
+      } 
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-uses axis determined in orientation(), apply filter and moves squaty image each loop iteration ----------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+    void accswitch() {
+      switch (num) {
+        case 0:
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-if num is 0 = use x-axis of acc  -----------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+          filter(num);
+          squatypower(filteredax);
+          break;
+        case 1:
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-if num is 1 = use y-axis of acc ------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+          filter(num);
+          squatypower(filtereday);
+          break;
+        case 2:
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-if num is 2 = use z-axis of acc ------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+          filter(num);
+          squatypower(filteredaz);
+          break;
+        default:
+          break;
+      }  
+    }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-makes squaty move --------------------------------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+      void squatypower(float input){
+        squatymetrix = 1- abs(input) ;
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//------proportinalitätsfaktor 0 = höchster y wert (450), 1= niedrigster y Wert (41) faktor= 43 durch testen ermittelt------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        pictmY =  int((1/squatymetrix)*43);
+      }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//----------------------------------------------- low pass filter for imu data inspiration taken from: ---------------------------------------------------------------------//
+//-----------------------------------------https://www.analog.com/en/analog-dialogue/raqs/raq-issue-127.html ---------------------------------------------------------------//
+//---------------------------code sniplet from phind.com https://www.phind.com/search?cache=9c8640d6-2e8f-43ed-acdf-b891f0359ab1--------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-low pass filter to smooth the jumping animation from squaty, currently not optimized last minute implementation-----------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+      void filter(int input){
+        switch (input){
+          case 0:
+            filteredax = (1.0 - filterCoefficient) * filteredax + filterCoefficient * ax;
+            break;
+          case 1:
+            filtereday = (1.0 - filterCoefficient) * filtereday + filterCoefficient * ay;
+            break;
+          case 2:
+            filteredaz = (1.0 - filterCoefficient) * filteredaz + filterCoefficient * az;
+            break;
+        }
+      }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-stop player from falling through ground-----------------------------------------------------------------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+    void borderengine(){
+      if (pictmY + (pictAH/2) > groundY) {
+        pictmY = 410;
+      }
+      if(pictmY+(pictAH/2) <80){
+        pictmY=pictAH/2;
+      }
+    }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//****-pauses game and display text (gs=3)
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+    void hitdetection(){
+      boolean hit =hitbox(pictmY, objX, objY);
+      if (hit){ 
+        gs=3;
+      }
+    }
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//------------------------------------------the algoritmic logic is our own work but has been based on ---------------------------------------------------------------------//
+//-------------------------------https://happycoding.io/tutorials/processing/collision-detection - hitbox detection input --------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//*****-tracks if the jumping image of squatty is or is not in collision with the moving buildings source-------------------------------------------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+      boolean hitbox( float r1y, float r2x, float r2y) {
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+//------are both images touching each other between the period r2x 200-0, and is the front of the squaty colliding with the moving object-----------------------------------//
+//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------//
+        if (r2y <= r1y-objH && r2x < 200 && r2x>0){
+              return true;
+            }
+          return false;    
+      }
