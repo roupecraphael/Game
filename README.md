@@ -16,6 +16,7 @@ This is a game where you control squaty your fitnesspal and "jump" over Obstacle
 ## Installation
 - Connect your Arduino Board to your Computer or Laptop
 - Connect your IMU Sensor to the Microcontroller like so:
+- 
 <a href="https://ibb.co/y6154YS"><img src="https://i.ibb.co/y6154YS/Whats-App-Image-2023-06-18-at-12-24-34.jpg" alt="Whats-App-Image-2023-06-18-at-12-24-34" border="0"></a>
 <a href=""><img src="https://microcontrollerslab.com/wp-content/uploads/2021/03/MPU9250-9-DOF-MEMS-Sensor-Module-interfacing-Arduino.jpg" alt="" border ="0"></a>
 - Start up the Arduino IDE, open the Arduino sketch and upload your code
